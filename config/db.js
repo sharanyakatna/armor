@@ -1,13 +1,24 @@
 const mongoose = require("mongoose");
 
 const connectDB = async () => {
+  const uri = process.env.MONGO_URI;
+
+  if (!uri) {
+    console.error("❌ MONGO_URI environment variable is not defined.");
+    return; // don't try to connect; let the app start for health checks
+  }
+
   try {
-    await mongoose.connect(process.env.MONGO_URI);
+    await mongoose.connect(uri, {
+      useNewUrlParser: true,
+      useUnifiedTopology: true,
+    });
     console.log("✅ MongoDB Connected Successfully");
   } catch (error) {
     console.error("❌ MongoDB Connection Failed:", error.message);
-    process.exit(1);
+    // don't call process.exit(1) in AWS; it kills the health check loop
   }
 };
 
 module.exports = connectDB;
+

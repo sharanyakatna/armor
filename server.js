@@ -12,7 +12,19 @@ const app = express();
 app.use(cors());
 app.use(bodyParser.json());
 
+// routes
 app.use("/api", reportRoutes);
 
-const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
+// simple health-check route for AWS
+app.get("/", (req, res) => {
+  res.send("Armor backend running 🛡️");
+});
+
+// listen on all interfaces so Elastic Beanstalk can reach it
+const PORT = process.env.PORT || 8080;
+const HOST = "0.0.0.0";
+
+app.listen(PORT, HOST, () =>
+  console.log(`🚀 Server running at http://${HOST}:${PORT}`)
+);
+
