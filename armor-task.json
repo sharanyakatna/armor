@@ -1,26 +1,44 @@
 {
   "family": "armor",
   "networkMode": "awsvpc",
-  "requiresCompatibilities": ["FARGATE"],
-  "cpu": "256",
-  "memory": "512",
+  "executionRoleArn": "arn:aws:iam::653765021347:role/ecsTaskExecutionRole",
   "containerDefinitions": [
     {
       "name": "armor",
-      "image": "653765021347.dkr.ecr.ap-south-1.amazonaws.com/armor:latest",
+      "image": "653765021347.dkr.ecr.ap-south-1.amazonaws.com/armor-backend:latest",
       "essential": true,
       "portMappings": [
-        { "containerPort": 8080, "protocol": "tcp" }
+        {
+          "containerPort": 8080,
+          "protocol": "tcp"
+        }
       ],
       "environment": [
-        { "name": "PORT", "value": "8080" },
+        {
+          "name": "PORT",
+          "value": "8080"
+        },
+        {
+          "name": "NODE_ENV",
+          "value": "production"
+        },
         {
           "name": "MONGO_URI",
-          "value": "mongodb+srv://dhruvhada24:8141Hd%2A%2A@armor-db.yllnt5r.mongodb.net/armorDB?retryWrites=true&w=majority"
+          "value": "your_mongo_uri_here"
         }
-      ]
+      ],
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group": "/ecs/armor",
+          "awslogs-region": "ap-south-1",
+          "awslogs-stream-prefix": "ecs"
+        }
+      }
     }
   ],
-  "executionRoleArn": "arn:aws:iam::653765021347:role/ecsTaskExecutionRole"
+  "requiresCompatibilities": ["FARGATE"],
+  "cpu": "256",
+  "memory": "512"
 }
 
