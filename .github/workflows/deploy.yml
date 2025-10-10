@@ -26,20 +26,20 @@ jobs:
           node-version: "18"
 
       # Configure AWS credentials
-      - name: 🔐 Configure AWS credentials
+      - name:  Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ${{ secrets.AWS_REGION }}
+          aws-region: ${{ secrets.AWS_REGION || 'ap-south-1' }}
 
-      # ----- 🐳 BACKEND -----
-      - name: 📦 Build Docker image for backend
+      # ----- BACKEND -----
+      - name:  Build Docker image for backend
         working-directory: backend
         run: |
           docker buildx build --platform linux/amd64 -t armor-backend .
 
-      - name: 🪣 Push Docker image to ECR
+      - name: Push Docker image to ECR
         run: |
           aws ecr get-login-password --region ${{ secrets.AWS_REGION }} | docker login --username AWS --password-stdin ${{ secrets.ECR_REPOSITORY }}
           docker tag armor-backend:latest ${{ secrets.ECR_REPOSITORY }}:latest
