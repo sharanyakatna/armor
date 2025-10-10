@@ -19,7 +19,7 @@ jobs:
           fetch-depth: 0
           submodules: false
 
-      # Setup Node (for frontend + backend builds)
+      # Setup Node
       - name: ⚙️ Setup Node.js
         uses: actions/setup-node@v4
         with:
@@ -69,10 +69,5 @@ jobs:
           aws cloudfront create-invalidation \
             --distribution-id ${{ secrets.CLOUDFRONT_DISTRIBUTION_ID }} \
             --paths "/*"
-          echo "🚀 CloudFront cache invalidated"
-      - name: 🧠 Checkout repository
-         uses: actions/checkout@v4
-        with:
-         fetch-depth: 0
-         submodules: false
+          echo "🚀 CloudFront cache invalidated successfully!"
 
