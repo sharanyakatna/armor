@@ -1,95 +1,44 @@
-name: Deploy to AWS ECS
-
-on:
-  push:
-    branches:
-      - devops
-
-jobs:
-  deploy:
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: 📦 Checkout repository
-        uses: actions/checkout@v4
-
-      - name: ⚙️ Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ap-south-1
-
-      - name: 🪣 Log in to Amazon ECR
-        id: login-ecr
-        uses: aws-actions/amazon-ecr-login@v2
-
-      - name: 🏗️ Build, tag, and push image to ECR
-        env:
-          ECR_REGISTRY: 653765021347.dkr.ecr.ap-south-1.amazonaws.com
-          ECR_REPOSITORY: armor-backend
-        run: |
-          IMAGE_TAG=${GITHUB_SHA::7}
-          docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
-          docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
-          echo "IMAGE_TAG=$IMAGE_TAG" >> $GITHUB_ENV
-
-      - name: 📝 Register new task definition
-        run: |
-          aws ecs register-task-definition \
-            --family armor \
-            --execution-role-arn arn:aws:iam::653765021347:role/ecsTaskExecutionRole \
-            --network-mode awsvpc \
-            --requires-compatibilities FARGATE \
-            --cpu 256 \
-            --memory 512 \
-            --container-definitions "[{
-              \"name\":\"armor\",
-              \"image\":\"653765021347.dkr.ecr.ap-south-1.amazonaws.com/armor-backend:${{ env.IMAGE_TAG }}\",
-              \"essential\":true,
-              \"portMappings\":[{\"containerPort\":8080,\"protocol\":\"tcp\"}],
-              \"environment\":[
-                {\"name\":\"NODE_ENV\",\"value\":\"production\"},
-                {\"name\":\"PORT\",\"value\":\"8080\"}
-              ],
-              \"logConfiguration\":{
-                \"logDriver\":\"awslogs\",
-                \"options\":{
-                  \"awslogs-group\":\"/ecs/armor\",
-                  \"awslogs-region\":\"ap-south-1\",
-                  \"awslogs-stream-prefix\":\"ecs\"
-                }
-              }
-            }]"
-
-      - name: 🚀 Update ECS service with new image
-        run: |
-          aws ecs update-service \
-            --cluster armor \
-            --service armor \
-            --force-new-deployment \
-            --region ap-south-1
-
-      - name: 📊 Ensure CloudWatch Log Group Exists
-        run: |
-          aws logs create-log-group --log-group-name /ecs/armor --region ap-south-1 || echo "Log group already exists"
-          aws logs put-retention-policy --log-group-name /ecs/armor --retention-in-days 30 --region ap-south-1
-
-      - name: 🔔 Send Slack or Discord Notification
-        if: always()
-        run: |
-          STATUS=${{ job.status }}
-          MESSAGE=":shield: **Armor ECS Deploy:** $STATUS%0A**Commit:** $GITHUB_SHA%0A**Branch:** $GITHUB_REF_NAME"
-          if [ "${{ secrets.SLACK_WEBHOOK_URL }}" != "" ]; then
-            curl -X POST -H 'Content-type: application/json' \
-              --data "{\"text\":\":rocket: $MESSAGE\"}" \
-              ${{ secrets.SLACK_WEBHOOK_URL }}
-          elif [ "${{ secrets.DISCORD_WEBHOOK_URL }}" != "" ]; then
-            curl -H "Content-Type: application/json" \
-              -X POST \
-              -d "{\"content\":\"$MESSAGE\"}" \
-              ${{ secrets.DISCORD_WEBHOOK_URL }}
-          else
-            echo "No webhook configured — skipping notification."
-
+{
+  "family": "armor",
+  "networkMode": "awsvpc",
+  "executionRoleArn": "arn:aws:iam::653765021347:role/ecsTaskExecutionRole",
+  "containerDefinitions": [
+    {
+      "name": "armor",
+      "image": "653765021347.dkr.ecr.ap-south-1.amazonaws.com/armor-backend:latest",
+      "essential": true,
+      "portMappings": [
+        {
+          "containerPort": 8080,
+          "protocol": "tcp"
+        }
+      ],
+      "environment": [
+        {
+          "name": "PORT",
+          "value": "8080"
+        },
+        {
+          "name": "NODE_ENV",
+          "value": "production"
+        },
+        {
+          "name": "MONGO_URI",
+          "value": "your_mongo_uri_here"
+        }
+      ],
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group": "/ecs/armor",
+          "awslogs-region": "ap-south-1",
+          "awslogs-stream-prefix": "ecs"
+        }
+      }
+    }
+  ],
+  "requiresCompatibilities": ["FARGATE"],
+  "cpu": "256",
+  "memory": "512"
+}
 
