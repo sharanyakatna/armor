@@ -70,9 +70,9 @@ jobs:
             --distribution-id ${{ secrets.CLOUDFRONT_DISTRIBUTION_ID }} \
             --paths "/*"
           echo "🚀 CloudFront cache invalidated"
-- name: 🧠 Checkout repository
-  uses: actions/checkout@v4
-  with:
-    fetch-depth: 0
-    submodules: false
+      - name: 🧠 Checkout repository
+         uses: actions/checkout@v4
+        with:
+         fetch-depth: 0
+         submodules: false
 
