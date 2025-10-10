@@ -35,9 +35,8 @@ jobs:
 
       # ----- BACKEND -----
       - name:  Build Docker image for backend
-        working-directory: backend
         run: |
-          docker buildx build --platform linux/amd64 -t armor-backend .
+          docker buildx build --platform linux/amd64 -t armor-backend -f backend/Dockerfile backend
 
       - name: Push Docker image to ECR
         run: |
@@ -45,15 +44,15 @@ jobs:
           docker tag armor-backend:latest ${{ secrets.ECR_REPOSITORY }}:latest
           docker push ${{ secrets.ECR_REPOSITORY }}:latest
 
-      - name: 🚀 Update ECS Service
+      - name: Update ECS Service
         run: |
           aws ecs update-service \
             --cluster ${{ secrets.ECS_CLUSTER }} \
             --service ${{ secrets.ECS_SERVICE }} \
             --force-new-deployment
 
-      # ----- 🎨 FRONTEND -----
-      - name: 🧱 Build frontend
+      # -----  FRONTEND -----
+      - name:  Build frontend
         working-directory: frontend
         run: |
           npm ci
