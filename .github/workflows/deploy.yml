@@ -1,4 +1,4 @@
-name: 🧩 Deploy Backend to ECS + Frontend to S3
+name: 🧩 Deploy Backend to ECS + Frontend (Vite) to S3
 
 on:
   push:
@@ -16,7 +16,7 @@ jobs:
       ECS_CLUSTER: armor
       ECS_SERVICE: armor
       S3_BUCKET: armor-frontend-prod
-      CLOUDFRONT_DISTRIBUTION_ID: E25JXYZ1234567  # replace with your actual ID
+      CLOUDFRONT_DISTRIBUTION_ID: "" # Optional — fill if you have CloudFront
 
     steps:
       # 🧠 Checkout repository
@@ -31,14 +31,12 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ env.AWS_REGION }}
 
-      # 🧹 Ensure Dockerfile path & repo structure
-      - name: 🧹 Verify backend folder structure
+      # 🧹 Verify repo structure
+      - name: 🧹 Verify backend and frontend structure
         run: |
-          echo "Current directory: $(pwd)"
-          echo "Contents of repo root:"
-          ls -la
-          echo "Contents of backend directory:"
-          ls -la backend
+          echo "📁 Root directory:" && ls -la
+          echo "📁 Backend directory:" && ls -la backend
+          echo "📁 Frontend directory:" && ls -la frontend
 
       # 📦 Build Docker image for backend
       - name: 📦 Build Docker image for backend
@@ -49,14 +47,14 @@ jobs:
             -f ./backend/Dockerfile \
             ./backend
 
-      # 🪣 Tag & Push Docker image to Amazon ECR
+      # 🪣 Push Docker image to Amazon ECR
       - name: 🪣 Push Docker image to ECR
         run: |
           aws ecr get-login-password --region $AWS_REGION | docker login --username AWS --password-stdin $ECR_REPO
           docker tag armor-backend:latest $ECR_REPO:latest
           docker push $ECR_REPO:latest
 
-      # 🚀 Update ECS Service
+      # 🚀 Update ECS Service with new image
       - name: 🚀 Update ECS Service
         run: |
           aws ecs update-service \
@@ -65,19 +63,25 @@ jobs:
             --force-new-deployment \
             --region $AWS_REGION
 
-      # 🎨 Build Frontend
-      - name: 🎨 Build Frontend
+      # 🎨 Build Vite Frontend
+      - name: 🎨 Build Vite Frontend
         working-directory: frontend
         run: |
-          npm install
+          npm ci || npm install
           npm run build
 
-      # ☁️ Deploy Frontend to S3
+      # ☁️ Deploy Frontend (dist/) to S3
       - name: ☁️ Deploy Frontend to S3
         run: |
-          aws s3 sync frontend/build s3://$S3_BUCKET --delete
+          if [ -d "frontend/dist" ]; then
+            echo "📦 Found Vite build folder → deploying dist/"
+            aws s3 sync frontend/dist s3://$S3_BUCKET --delete
+          else
+            echo "❌ No Vite build folder found. Check build logs."
+            exit 1
+          fi
 
-      # 🔁 Invalidate CloudFront Cache (optional but recommended)
+      # 🔁 Invalidate CloudFront cache (optional)
       - name: 🔁 Invalidate CloudFront cache
         if: env.CLOUDFRONT_DISTRIBUTION_ID != ''
         run: |
