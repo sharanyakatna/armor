@@ -1,4 +1,4 @@
-name: 🚀 Deploy ARMOR Full Stack
+name: 🧩 Deploy Backend to ECS + Frontend to S3
 
 on:
   push:
@@ -8,65 +8,80 @@ on:
 
 jobs:
   deploy:
-    name: 🧩 Deploy Backend to ECS + Frontend to S3
     runs-on: ubuntu-latest
 
+    env:
+      AWS_REGION: ap-south-1
+      ECR_REPO: 653765021347.dkr.ecr.ap-south-1.amazonaws.com/armor-backend
+      ECS_CLUSTER: armor
+      ECS_SERVICE: armor
+      S3_BUCKET: armor-frontend-prod
+      CLOUDFRONT_DISTRIBUTION_ID: E25JXYZ1234567  # replace with your actual ID
+
     steps:
-      # Checkout code
-      - name: 🧠 Checkout repository
+      # 🧠 Checkout repository
+      - name: 🧠 Checkout code
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-          submodules: false
 
-      # Setup Node
-      - name: ⚙️ Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: "18"
-
-      # Configure AWS credentials
-      - name:  Configure AWS credentials
+      # 🔐 Configure AWS credentials
+      - name: 🔐 Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ${{ secrets.AWS_REGION || 'ap-south-1' }}
+          aws-region: ${{ env.AWS_REGION }}
 
-      # ----- BACKEND -----
-      - name:  Build Docker image for backend
+      # 🧹 Ensure Dockerfile path & repo structure
+      - name: 🧹 Verify backend folder structure
         run: |
-          docker buildx build --platform linux/amd64 -t armor-backend -f backend/Dockerfile backend
+          echo "Current directory: $(pwd)"
+          echo "Contents of repo root:"
+          ls -la
+          echo "Contents of backend directory:"
+          ls -la backend
 
-      - name: Push Docker image to ECR
+      # 📦 Build Docker image for backend
+      - name: 📦 Build Docker image for backend
         run: |
-          aws ecr get-login-password --region ${{ secrets.AWS_REGION }} | docker login --username AWS --password-stdin ${{ secrets.ECR_REPOSITORY }}
-          docker tag armor-backend:latest ${{ secrets.ECR_REPOSITORY }}:latest
-          docker push ${{ secrets.ECR_REPOSITORY }}:latest
+          docker buildx build \
+            --platform linux/amd64 \
+            -t armor-backend \
+            -f ./backend/Dockerfile \
+            ./backend
 
-      - name: Update ECS Service
+      # 🪣 Tag & Push Docker image to Amazon ECR
+      - name: 🪣 Push Docker image to ECR
+        run: |
+          aws ecr get-login-password --region $AWS_REGION | docker login --username AWS --password-stdin $ECR_REPO
+          docker tag armor-backend:latest $ECR_REPO:latest
+          docker push $ECR_REPO:latest
+
+      # 🚀 Update ECS Service
+      - name: 🚀 Update ECS Service
         run: |
           aws ecs update-service \
-            --cluster ${{ secrets.ECS_CLUSTER }} \
-            --service ${{ secrets.ECS_SERVICE }} \
-            --force-new-deployment
+            --cluster $ECS_CLUSTER \
+            --service $ECS_SERVICE \
+            --force-new-deployment \
+            --region $AWS_REGION
 
-      # -----  FRONTEND -----
-      - name:  Build frontend
+      # 🎨 Build Frontend
+      - name: 🎨 Build Frontend
         working-directory: frontend
         run: |
-          npm ci
+          npm install
           npm run build
 
-      - name: ☁️ Deploy frontend to S3
+      # ☁️ Deploy Frontend to S3
+      - name: ☁️ Deploy Frontend to S3
         run: |
-          aws s3 sync frontend/dist s3://${{ secrets.S3_BUCKET }} --delete
-          echo "✅ Frontend uploaded to S3"
+          aws s3 sync frontend/build s3://$S3_BUCKET --delete
 
-      - name: 🌍 Invalidate CloudFront cache
+      # 🔁 Invalidate CloudFront Cache (optional but recommended)
+      - name: 🔁 Invalidate CloudFront cache
+        if: env.CLOUDFRONT_DISTRIBUTION_ID != ''
         run: |
           aws cloudfront create-invalidation \
-            --distribution-id ${{ secrets.CLOUDFRONT_DISTRIBUTION_ID }} \
+            --distribution-id $CLOUDFRONT_DISTRIBUTION_ID \
             --paths "/*"
-          echo "🚀 CloudFront cache invalidated successfully!"
 
