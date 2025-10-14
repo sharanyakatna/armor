@@ -10,13 +10,13 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
 
-    env:
-      AWS_REGION: ap-south-1
-      ECR_REPO: 653765021347.dkr.ecr.ap-south-1.amazonaws.com/armor-backend
-      ECS_CLUSTER: armor
-      ECS_SERVICE: armor
-      S3_BUCKET: armor-frontend-prod
-      CLOUDFRONT_DISTRIBUTION_ID: "" # Optional — fill if you have CloudFront
+env:
+  AWS_REGION: ap-south-1
+  ECR_REPO: 653765021347.dkr.ecr.ap-south-1.amazonaws.com/armor-backend
+  ECS_CLUSTER: armor
+  ECS_SERVICE: armor-service-nuxmu96v
+  S3_BUCKET: armor-frontend-prod
+  CLOUDFRONT_DISTRIBUTION_ID: EQZNEDT8PA3PC   # ✅ from your CloudFront dashboard
 
     steps:
       # 🧠 Checkout repository
