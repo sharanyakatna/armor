@@ -1,0 +1,44 @@
+{
+  "family": "armor",
+  "networkMode": "awsvpc",
+  "executionRoleArn": "arn:aws:iam::653765021347:role/ecsTaskExecutionRole",
+  "containerDefinitions": [
+    {
+      "name": "armor",
+      "image": "653765021347.dkr.ecr.ap-south-1.amazonaws.com/armor-backend:latest",
+      "essential": true,
+      "portMappings": [
+        {
+          "containerPort": 8080,
+          "protocol": "tcp"
+        }
+      ],
+      "environment": [
+        {
+          "name": "PORT",
+          "value": "8080"
+        },
+        {
+          "name": "NODE_ENV",
+          "value": "production"
+        },
+        {
+          "name": "MONGO_URI",
+          "value": "your_mongo_uri_here"
+        }
+      ],
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group": "/ecs/armor",
+          "awslogs-region": "ap-south-1",
+          "awslogs-stream-prefix": "ecs"
+        }
+      }
+    }
+  ],
+  "requiresCompatibilities": ["FARGATE"],
+  "cpu": "256",
+  "memory": "512"
+}
+

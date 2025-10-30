@@ -1,0 +1,90 @@
+name: 🧩 Deploy Backend to ECS + Frontend (Vite) to S3
+
+on:
+  push:
+    branches:
+      - devops
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    env:                                   # ✅ env indented under deploy
+      AWS_REGION: ap-south-1
+      ECR_REPO: 653765021347.dkr.ecr.ap-south-1.amazonaws.com/armor-backend
+      ECS_CLUSTER: armor
+      ECS_SERVICE: armor-service-nuxmu96v
+      S3_BUCKET: armor-frontend-prod
+      CLOUDFRONT_DISTRIBUTION_ID: EQZNEDT8PA3PC
+
+    steps:
+      # 🧠 Checkout repository
+      - name: 🧠 Checkout code
+        uses: actions/checkout@v4
+
+      # 🔐 Configure AWS credentials
+      - name: 🔐 Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      # 🧹 Verify repo structure
+      - name: 🧹 Verify backend and frontend structure
+        run: |
+          echo "📁 Root directory:" && ls -la
+          echo "📁 Backend directory:" && ls -la backend
+          echo "📁 Frontend directory:" && ls -la frontend
+
+      # 📦 Build Docker image for backend
+      - name: 📦 Build Docker image for backend
+        run: |
+          docker buildx build \
+            --platform linux/amd64 \
+            -t armor-backend \
+            -f ./backend/Dockerfile \
+            ./backend
+
+      # 🪣 Push Docker image to Amazon ECR
+      - name: 🪣 Push Docker image to ECR
+        run: |
+          aws ecr get-login-password --region $AWS_REGION | docker login --username AWS --password-stdin $ECR_REPO
+          docker tag armor-backend:latest $ECR_REPO:latest
+          docker push $ECR_REPO:latest
+
+      # 🚀 Update ECS Service with new image
+      - name: 🚀 Update ECS Service
+        run: |
+          aws ecs update-service \
+            --cluster $ECS_CLUSTER \
+            --service $ECS_SERVICE \
+            --force-new-deployment \
+            --region $AWS_REGION
+      
+      # 🎨 Build Vite Frontend
+      - name: 🎨 Build Vite Frontend
+        working-directory: frontend
+        run: |
+          npm ci || npm install
+          npm run build
+      
+      # ☁️ Deploy Frontend (dist/) to S3
+      - name: ☁️ Deploy Frontend to S3
+        run: |
+          if [ -d "frontend/dist" ]; then
+            echo "📦 Found Vite build folder → deploying dist/"
+            aws s3 sync frontend/dist s3://$S3_BUCKET --delete
+          else
+            echo "❌ No Vite build folder found. Check build logs."
+            exit 1
+          fi
+      
+      # 🔁 Invalidate CloudFront cache (optional)
+      - name: 🔁 Invalidate CloudFront cache
+        if: env.CLOUDFRONT_DISTRIBUTION_ID != ''
+        run: |
+          aws cloudfront create-invalidation \
+            --distribution-id $CLOUDFRONT_DISTRIBUTION_ID \
+            --paths "/*"
+
